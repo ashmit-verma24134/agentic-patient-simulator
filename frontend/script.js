@@ -1,7 +1,8 @@
 /* ================== GLOBAL STATE ================== */
+console.log("🔥 FINAL SCRIPT VERSION LOADED 🔥");
 
-let sessions = {};              // all patient sessions
-let activeSessionId = null;     // currently selected patient
+let sessions = {};
+let activeSessionId = null;
 let patientCounter = 1;
 
 /* ================== DOM ================== */
@@ -34,7 +35,7 @@ createSessionBtn.onclick = async () => {
     label: `Patient ${patientCounter++}`,
     chat: [],
     status: "Diagnosis not allowed yet",
-    locked: false,
+    phase: "question", // question | diagnosis | treatment | complete
   };
 
   setActiveSession(sessionId);
@@ -47,15 +48,20 @@ function setActiveSession(sessionId) {
   activeSessionId = sessionId;
   const session = sessions[sessionId];
 
-  sessionInfo.innerText =
-    `${session.label} • ${sessionId.slice(0, 8)}`;
-
+  sessionInfo.innerText = `${session.label} • ${sessionId.slice(0, 8)}`;
   statusText.innerText = session.status;
-  statusText.style.color =
-    session.status.includes("not") ? "#b91c1c" : "#166534";
 
-  userInput.disabled = session.locked;
-  sendBtn.disabled = session.locked;
+  // 🟢 GREEN for diagnosis/treatment/complete
+  if (session.phase === "question") {
+    statusText.style.color = "#b91c1c"; // red
+  } else {
+    statusText.style.color = "#166534"; // green
+  }
+
+  // 🔒 Input control
+  const allowInput = session.phase !== "complete";
+  userInput.disabled = !allowInput;
+  sendBtn.disabled = !allowInput;
 
   renderChat();
   renderSessionList();
@@ -76,16 +82,14 @@ function renderSessionList() {
   });
 }
 
-/* ================== SEND MESSAGE (FORM SUBMIT) ================== */
+/* ================== SEND MESSAGE ================== */
 
 chatForm.addEventListener("submit", async (e) => {
-  e.preventDefault(); // 🔥 REQUIRED
-
+  e.preventDefault();
   if (!activeSessionId) return;
 
   const message = userInput.value.trim();
   if (!message) return;
-
   userInput.value = "";
 
   const res = await fetch("http://127.0.0.1:5000/chat", {
@@ -100,7 +104,7 @@ chatForm.addEventListener("submit", async (e) => {
   const data = await res.json();
   const session = sessions[activeSessionId];
 
-  /* 🚨 ERROR FIRST */
+  /* 🚨 ERROR */
   if (data.error) {
     session.chat.push({
       sender: "System",
@@ -127,14 +131,13 @@ chatForm.addEventListener("submit", async (e) => {
     });
   }
 
-  /* 🟢 Diagnosis allowed */
+  /* 🟢 Diagnosis unlocked */
   if (data.next_action === "allow_diagnosis") {
+    session.phase = "diagnosis";
     session.status = "Diagnosis can now be attempted";
-    statusText.innerText = session.status;
-    statusText.style.color = "#166534";
   }
 
-  /* ✅ Evaluation */
+  /* ✅ Diagnosis Evaluation */
   if (data.evaluation) {
     session.chat.push({
       sender: "System",
@@ -143,23 +146,33 @@ chatForm.addEventListener("submit", async (e) => {
     });
 
     if (data.evaluation.verdict === "correct") {
-      session.status = "✅ Diagnosis completed";
-      session.locked = true;
-      userInput.disabled = true;
-      sendBtn.disabled = true;
-      statusText.innerText = session.status;
-      statusText.style.color = "#166534";
+      session.phase = "treatment";
+      session.status = "💊 Diagnosis completed — prescribe treatment";
+
+      userInput.placeholder =
+        "Prescribe treatment (e.g. treatment: rest in dark room)";
     }
   }
 
-  renderChat();
+  /* 💊 Treatment accepted */
+  if (data.treatment_verdict === "accepted") {
+    session.chat.push({
+      sender: "System",
+      text: "Treatment accepted. Session completed.",
+      cls: "system",
+    });
+
+    session.phase = "complete";
+    session.status = "✅ Treatment completed";
+  }
+
+  setActiveSession(activeSessionId); // 🔥 FORCE UI SYNC
 });
 
 /* ================== RENDER CHAT ================== */
 
 function renderChat() {
   chatBox.innerHTML = "";
-
   if (!activeSessionId) return;
 
   sessions[activeSessionId].chat.forEach((m) => {
