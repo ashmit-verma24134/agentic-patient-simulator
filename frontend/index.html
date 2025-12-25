@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agentic Patient Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-wrapper">
+    <div class="layout">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <h3>🗂 Sessions</h3>
+        <button id="createSessionBtn">+ New Patient</button>
+        <div id="sessionList"></div>
+      </aside>
+
+      <!-- MAIN CHAT -->
+      <main class="container">
+        <h1>Agentic Patient Simulator</h1>
+
+        <p id="sessionInfo">No session selected</p>
+        <p id="status" class="status">Diagnosis not allowed yet</p>
+
+        <div id="chatBox"></div>
+
+        <!-- 🔥 FORM FIX -->
+        <form id="chatForm" class="chat-input">
+          <input
+            id="userInput"
+            placeholder="Ask a question or type: diagnosis: flu"
+            autocomplete="off"
+          />
+          <button type="submit" id="sendBtn">Send</button>
+        </form>
+
+      </main>
+
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
