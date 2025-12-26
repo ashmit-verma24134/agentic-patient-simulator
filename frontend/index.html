@@ -9,15 +9,11 @@
 <body>
   <div class="app-wrapper">
     <div class="layout">
-
-      <!-- SIDEBAR -->
       <aside class="sidebar">
-        <h3>🗂 Sessions</h3>
+        <h3>Sessions</h3>
         <button id="createSessionBtn">+ New Patient</button>
         <div id="sessionList"></div>
       </aside>
-
-      <!-- MAIN CHAT -->
       <main class="container">
         <h1>Agentic Patient Simulator</h1>
 
@@ -26,21 +22,29 @@
 
         <div id="chatBox"></div>
 
-        <!-- 🔥 FORM FIX -->
+        <div id="typingIndicator" class="typing-indicator" style="display: none;">
+          Patient is typing<span class="dots"></span>
+        </div>
         <form id="chatForm" class="chat-input">
           <input
             id="userInput"
-            placeholder="Ask a question or type: diagnosis: flu"
             autocomplete="off"
           />
           <button type="submit" id="sendBtn">Send</button>
         </form>
-
       </main>
+      <aside class="right-panel">
+        <h3> Patient Memory</h3>
+        <ul id="memoryList">
+        </ul>
+
+        <h3>Diagnostic Confidence</h3>
+        <div id="confidenceBars">
+        </div>
+      </aside>
 
     </div>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>

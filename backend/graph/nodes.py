@@ -7,21 +7,12 @@ def classify_node(state):
 def respond_node(state):
     qtype = state["question_type"]
     disease = state["disease"]
-
-    # mapping ONLY to disease-valid symptoms
     symptom_map = {
-        "flu": {
-            "fever": "fever",
-            "respiratory": "cough"
-        },
+        "flu": {"fever": "fever","respiratory": "cough"},
         "migraine": {
             "pain": "headache",
-            "light": "light_sensitivity"
-        },
-        "food_poisoning": {
-            "pain": "stomach pain",
-            "nausea": "nausea"
-        }
+            "light": "light_sensitivity"},
+        "food_poisoning": {"pain": "stomach pain","nausea": "nausea"}
     }
 
     reply = "I’m not sure that’s related."
@@ -31,7 +22,6 @@ def respond_node(state):
             state["symptoms_revealed"].append(symptom)
             reply = symptom_sentence(symptom)
             break
-
     state["questions_asked"] += 1
     state["last_reply"] = reply
     return state

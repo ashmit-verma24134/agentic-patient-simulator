@@ -13,55 +13,38 @@ class PatientAgent:
         self.optional_symptoms = set(disease_info.get("optional_symptoms", []))
         self.all_symptoms = self.required_symptoms | self.optional_symptoms
         self.min_questions = disease_info.get("min_questions", 2)
-
-        # state defaults
         self.state.setdefault("symptoms_revealed", [])
         self.state.setdefault("questions_asked", 0)
         self.state.setdefault("ready_for_diagnosis", False)
         self.state.setdefault("next_action", None)
-
-    # ================= MAIN =================
-
     def respond(self, user_message: str) -> str:
         self.state["questions_asked"] += 1
-
         qtype = classify_question(user_message)
         msg = user_message.lower()
-
-        # fatigue check FIRST (important)
         if any(w in msg for w in ["tired", "fatigue", "exhausted"]):
             reply = self._symptom("fatigue")
-
         elif qtype == QuestionType.FEVER:
             reply = self._symptom("fever")
-
         elif qtype == QuestionType.RESPIRATORY:
             reply = self._symptom("cough")
-
         elif qtype == QuestionType.SENSITIVITY:
             reply = self._symptom("light_sensitivity")
-
         elif qtype == QuestionType.GI:
             reply = self._gi_reply(msg)
-
         elif qtype == QuestionType.PAIN:
             reply = self._pain_reply(msg)
-
         elif qtype == QuestionType.DURATION:
             reply = (
                 "It’s hard to say right now."
                 if not self.state["ready_for_diagnosis"]
                 else "The symptoms have been going on for a few days."
             )
-
         else:
             reply = "I’m just not feeling very well.Please help me !! "
 
         self._check_unlock()
         return reply
-
-    # ================= HELPERS =================
-
+#helpers
     def _symptom(self, symptom: str) -> str:
         if symptom not in self.all_symptoms:
             return "No, I don’t think that’s been an issue."
@@ -81,9 +64,7 @@ class PatientAgent:
             "movement_worsens_headache": "Yes, movement makes it worse.",
             "relieved_by_darkness": "Yes, resting in a dark room helps.",
         }
-
         return responses.get(symptom, "Yes, I’ve been experiencing that.")
-
     def _pain_reply(self, msg: str) -> str:
         pain_map = {
             "unilateral_headache": ["one side", "one-sided"],
@@ -93,13 +74,11 @@ class PatientAgent:
             "body pain": ["body pain", "ache", "hurt"],
             "stomach pain": ["stomach", "abdominal", "belly"],
         }
-
         for symptom, keys in pain_map.items():
             if any(k in msg for k in keys):
                 return self._symptom(symptom)
 
         return "Could you be more specific about the pain?"
-
     def _gi_reply(self, msg: str) -> str:
         gi_map = {
             "nausea": ["nausea", "nauseous"],
@@ -113,7 +92,6 @@ class PatientAgent:
 
         return "Could you clarify the stomach-related symptom?"
 
-    # 🔥 THIS WAS MISSING BEFORE
     def _record(self, symptom: str):
         if symptom not in self.state["symptoms_revealed"]:
             self.state["symptoms_revealed"].append(symptom)
@@ -121,7 +99,6 @@ class PatientAgent:
     def _check_unlock(self):
         revealed = set(self.state["symptoms_revealed"])
 
-        # disease-aware unlock
         if self.state["disease"] == "migraine":
             if (
                 "headache" in revealed
@@ -132,7 +109,6 @@ class PatientAgent:
                 self.state["next_action"] = "allow_diagnosis"
             return
 
-        # default rule (flu / food poisoning)
         if (
             not self.state["ready_for_diagnosis"]
             and self.required_symptoms <= revealed

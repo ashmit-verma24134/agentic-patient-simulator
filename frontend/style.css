@@ -1,115 +1,32 @@
-
 * {
   box-sizing: border-box;
   font-family: "Segoe UI", system-ui, sans-serif;
 }
 
-
 body {
   margin: 0;
-  font-family: "Segoe UI", sans-serif;
   background: #f4f6fb;
 }
 
-/* ---------- CENTER APP ---------- */
 .app-wrapper {
   min-height: 100vh;
   width: 100vw;
+  padding: 24px;
 
   display: flex;
-  align-items: center;       /* vertical center */
-  justify-content: center;   /* horizontal center */
-
-  background: #f4f6fb;
+  align-items: flex-start;
+  justify-content: center;
 }
-
-
-/* ---------- MAIN CARD ---------- */
-.container {
-  width: 420px;
-  max-width: 90%;
-  background: #ffffff;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-}
-
-
-/* ---------- HEADER ---------- */
-h1 {
-  text-align: center;
-  margin-bottom: 15px;
-}
-
-/* ---------- BUTTON ---------- */
-button {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 8px;
-  border: none;
-  background: #4f46e5;
-  color: white;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #4338ca;
-}
-
-/* ---------- INFO ---------- */
-#sessionInfo {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #555;
-  word-break: break-all;
-}
-
-#status {
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: bold;
-  color: #b91c1c;
-}
-
-/* ---------- CHAT ---------- */
-#chatBox {
-  margin-top: 12px;
-  height: 260px;
-  overflow-y: auto;
-
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-
-  padding: 16px 14px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 12px;   /* ⬅️ SPACE BETWEEN MESSAGES */
-}
-
-
-/* ---------- MESSAGES ---------- */
-/* ---------- MESSAGES ---------- */
-.message {
-  margin-bottom: 14px;          /* ⬅️ MORE GAP */
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  line-height: 1.6;             /* ⬅️ BETTER READABILITY */
-  max-width: 92%;
-}
-
 
 .layout {
-  display: flex;
+  display: grid;
+  grid-template-columns: 220px 420px 260px;
   gap: 20px;
+  width: 100%;
+  max-width: 980px;
 }
 
 .sidebar {
-  width: 220px;
   background: #ffffff;
   border-radius: 14px;
   padding: 15px;
@@ -134,50 +51,150 @@ button:hover {
   color: white;
 }
 
-
-/* Doctor (user) */
-.message.user {
-  align-self: flex-end;     /* 🔥 THIS IS THE KEY */
-  background: #e0e7ff;
-  color: #1e3a8a;
-
-  padding: 10px 14px;
-  border-radius: 12px;
-
-  max-width: 70%;
-  text-align: right;
+.container {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
+h1 {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+#sessionInfo {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #555;
+}
+
+#status {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+#chatBox {
+  margin-top: 12px;
+  height: 260px;
+  overflow-y: auto;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  max-width: 70%;
+}
+
+.message.user {
+  align-self: flex-end;
+  background: #e0e7ff;
+  color: #1e3a8a;
+  text-align: right;
+}
 
 .message.patient {
   align-self: flex-start;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-
-  padding: 10px 14px;
-  border-radius: 12px;
-
-  max-width: 70%;
 }
 
-/* System */
 .message.system {
   background: #dcfce7;
   color: #166534;
   font-weight: 600;
   text-align: center;
-  margin: 18px auto;            /* ⬅️ EXTRA GAP FOR SYSTEM */
+  margin: 18px auto;
 }
 
-
-
-
-/* ---------- INPUT ---------- */
 #userInput {
   margin-top: 10px;
   width: 100%;
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #d1d5db;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #4f46e5;
+  color: white;
   font-size: 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #4338ca;
+}
+
+.typing-indicator {
+  font-style: italic;
+  color: #6b7280;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+
+.right-panel {
+  background: #ffffff;                   
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+
+#memoryList {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 20px;
+}
+
+#memoryList li {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.bar-container {
+  margin-bottom: 16px;
+}
+
+.bar-label {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.bar-bg {
+  width: 100%;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+  transition: width 0.4s ease;
 }
