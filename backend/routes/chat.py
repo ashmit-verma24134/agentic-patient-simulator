@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
-from memory.session_store import get_session
-chat_bp = Blueprint("chat", __name__)
+from backend.memory.session_store import get_session
+
+chat_bp = Blueprint("chat", __name__, url_prefix="/api")
+
+
 def compute_disease_confidence(symptoms):
     DISEASES = {
         "Flu": {
@@ -22,23 +25,27 @@ def compute_disease_confidence(symptoms):
             "optional": ["diarrhea", "stomach pain"]
         }
     }
+
     scores = {}
+
     for disease, info in DISEASES.items():
         req_matches = sum(1 for s in info["required"] if s in symptoms)
         opt_matches = sum(1 for s in info["optional"] if s in symptoms)
+
         score = 0
         score += req_matches * 2
         score += opt_matches * 1
         if disease == "Migraine" and "light_sensitivity" in symptoms:
             score += 2
         if disease == "Food Poisoning":
-            gi_cluster = any(s in symptoms for s in ["vomiting", "diarrhea", "stomach pain"])
+            gi_cluster = any(
+                s in symptoms for s in ["vomiting", "diarrhea", "stomach pain"]
+            )
             if not gi_cluster:
-                score *= 0.4   # heavily down-weight
+                score *= 0.4
 
         scores[disease] = score
 
-    # keep only diseases with evidence
     scores = {d: s for d, s in scores.items() if s > 0}
 
     if not scores:
@@ -49,6 +56,8 @@ def compute_disease_confidence(symptoms):
         d: round((scores.get(d, 0) / total) * 100)
         for d in DISEASES
     }
+
+
 @chat_bp.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
@@ -61,11 +70,12 @@ def chat():
         return jsonify({"error": "Invalid session"}), 400
 
     state = session["patient_state"]
+
     if lower_msg.startswith("diagnosis"):
         if not state.get("ready_for_diagnosis", False):
             return jsonify({"error": "Diagnosis is not allowed yet."})
 
-        from agents.evaluator_agent import EvaluatorAgent
+        from backend.agents.evaluator_agent import EvaluatorAgent
 
         evaluator = EvaluatorAgent(state)
         result = evaluator.evaluate(lower_msg)
@@ -83,14 +93,13 @@ def chat():
             )
         })
 
-        #treatment handling
     if lower_msg.startswith("treatment"):
         if not state.get("diagnosis_confirmed", False):
             return jsonify({
                 "error": "Treatment cannot be prescribed before diagnosis."
             })
 
-        from agents.treatment_agent import TreatmentAgent
+        from backend.agents.treatment_agent import TreatmentAgent
 
         treatment_agent = TreatmentAgent(state)
         result = treatment_agent.evaluate(lower_msg)
@@ -109,16 +118,16 @@ def chat():
             )
         })
 
-#normal question flow in langraph
     graph = session["graph"]
 
     graph_input = {
         **state,
         "last_user_message": message
     }
+
     new_state = graph.invoke(graph_input)
-    # persist updated state
     state.update(new_state)
+
     return jsonify({
         "reply": new_state.get("reply"),
         "questions_asked": new_state.get("questions_asked"),

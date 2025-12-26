@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from memory.session_store import create_session
+from backend.memory.session_store import create_session
 
 session_bp = Blueprint("session", __name__)
 
