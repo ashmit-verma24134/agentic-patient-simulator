@@ -1,6 +1,9 @@
+python-dotenv
 flask
 flask-cors
 python-dotenv
 langgraph
 langchain
+
+
 
