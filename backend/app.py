@@ -1,20 +1,18 @@
 from flask import Flask
 from flask_cors import CORS
-from dotenv import load_dotenv
 import logging
-
-load_dotenv()
 
 def create_app():
     app = Flask(__name__)
     CORS(app)
-
     logging.basicConfig(level=logging.INFO)
-    from backend.routes.chat import chat_bp
-    from backend.routes.session import session_bp
 
-    app.register_blueprint(chat_bp)
-    app.register_blueprint(session_bp)
+    from routes.chat import chat_bp
+    from routes.session import session_bp
+
+
+    app.register_blueprint(chat_bp, url_prefix="/api")
+    app.register_blueprint(session_bp, url_prefix="/api")
 
     return app
 
