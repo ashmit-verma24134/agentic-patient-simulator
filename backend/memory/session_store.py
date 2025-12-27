@@ -1,10 +1,10 @@
 import uuid
 import random
 
-from backend.data.diseases import DISEASES
-from backend.graph.patient_graph import build_patient_graph
+from data.diseases import DISEASES
+from graph.patient_graph import build_patient_graph
 
-sessions = {}
+_sessions = {}
 
 
 def create_session():
@@ -13,7 +13,7 @@ def create_session():
 
     graph = build_patient_graph()
 
-    sessions[session_id] = {
+    _sessions[session_id] = {
         "graph": graph,
         "patient_state": {
             "disease": disease_name,
@@ -30,4 +30,4 @@ def create_session():
 
 
 def get_session(session_id):
-    return sessions.get(session_id)
+    return _sessions.get(session_id)

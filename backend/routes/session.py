@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
-from backend.memory.session_store import create_session
+from memory.session_store import create_session
 
-session_bp = Blueprint("session", __name__)
+session_bp = Blueprint("session", __name__, url_prefix="/api")
 
 @session_bp.route("/create_session", methods=["POST"])
 def create():

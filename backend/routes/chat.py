@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.memory.session_store import get_session
+from memory.session_store import get_session   # ✅ FIXED IMPORT
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api")
 
@@ -8,7 +8,7 @@ def compute_disease_confidence(symptoms):
     DISEASES = {
         "Flu": {
             "required": ["fever", "cough"],
-            "optional": ["fatigue", "body pain", "headache"]
+            "optional": ["fatigue", "body pain", "headache"],
         },
         "Migraine": {
             "required": ["headache"],
@@ -17,13 +17,13 @@ def compute_disease_confidence(symptoms):
                 "nausea",
                 "movement_worsens_headache",
                 "unilateral_headache",
-                "relieved_by_darkness"
-            ]
+                "relieved_by_darkness",
+            ],
         },
         "Food Poisoning": {
             "required": ["nausea", "vomiting"],
-            "optional": ["diarrhea", "stomach pain"]
-        }
+            "optional": ["diarrhea", "stomach pain"],
+        },
     }
 
     scores = {}
@@ -32,16 +32,13 @@ def compute_disease_confidence(symptoms):
         req_matches = sum(1 for s in info["required"] if s in symptoms)
         opt_matches = sum(1 for s in info["optional"] if s in symptoms)
 
-        score = 0
-        score += req_matches * 2
-        score += opt_matches * 1
+        score = req_matches * 2 + opt_matches
+
         if disease == "Migraine" and "light_sensitivity" in symptoms:
             score += 2
+
         if disease == "Food Poisoning":
-            gi_cluster = any(
-                s in symptoms for s in ["vomiting", "diarrhea", "stomach pain"]
-            )
-            if not gi_cluster:
+            if not any(s in symptoms for s in ["vomiting", "diarrhea", "stomach pain"]):
                 score *= 0.4
 
         scores[disease] = score
@@ -52,30 +49,27 @@ def compute_disease_confidence(symptoms):
         return {d: 0 for d in DISEASES}
 
     total = sum(scores.values())
-    return {
-        d: round((scores.get(d, 0) / total) * 100)
-        for d in DISEASES
-    }
+    return {d: round((scores.get(d, 0) / total) * 100) for d in DISEASES}
 
 
 @chat_bp.route("/chat", methods=["POST"])
 def chat():
-    data = request.get_json()
+    data = request.json or {}   # ✅ FIX 1
     session_id = data.get("session_id")
     message = data.get("message", "").strip()
-    lower_msg = message.lower()
 
     session = get_session(session_id)
     if not session:
         return jsonify({"error": "Invalid session"}), 400
 
     state = session["patient_state"]
+    lower_msg = message.lower()
 
     if lower_msg.startswith("diagnosis"):
-        if not state.get("ready_for_diagnosis", False):
+        if not state.get("ready_for_diagnosis"):
             return jsonify({"error": "Diagnosis is not allowed yet."})
 
-        from backend.agents.evaluator_agent import EvaluatorAgent
+        from agents.evaluator_agent import EvaluatorAgent   # ✅ FIXED IMPORT
 
         evaluator = EvaluatorAgent(state)
         result = evaluator.evaluate(lower_msg)
@@ -90,16 +84,14 @@ def chat():
             "symptoms_revealed": list(state.get("symptoms_revealed", [])),
             "disease_confidence": compute_disease_confidence(
                 state.get("symptoms_revealed", [])
-            )
+            ),
         })
 
     if lower_msg.startswith("treatment"):
-        if not state.get("diagnosis_confirmed", False):
-            return jsonify({
-                "error": "Treatment cannot be prescribed before diagnosis."
-            })
+        if not state.get("diagnosis_confirmed"):
+            return jsonify({"error": "Treatment cannot be prescribed before diagnosis."})
 
-        from backend.agents.treatment_agent import TreatmentAgent
+        from agents.treatment_agent import TreatmentAgent   # ✅ FIXED IMPORT
 
         treatment_agent = TreatmentAgent(state)
         result = treatment_agent.evaluate(lower_msg)
@@ -115,17 +107,12 @@ def chat():
             "symptoms_revealed": list(state.get("symptoms_revealed", [])),
             "disease_confidence": compute_disease_confidence(
                 state.get("symptoms_revealed", [])
-            )
+            ),
         })
 
     graph = session["graph"]
 
-    graph_input = {
-        **state,
-        "last_user_message": message
-    }
-
-    new_state = graph.invoke(graph_input)
+    new_state = graph.invoke({**state, "last_user_message": message})
     state.update(new_state)
 
     return jsonify({
@@ -136,5 +123,5 @@ def chat():
         "symptoms_revealed": list(state.get("symptoms_revealed", [])),
         "disease_confidence": compute_disease_confidence(
             state.get("symptoms_revealed", [])
-        )
+        ),
     })
