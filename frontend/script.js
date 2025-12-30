@@ -1,3 +1,6 @@
+const API_BASE = "https://miscible-unhurled-stormy.ngrok-free.dev";
+
+
 let sessions = {};
 let activeSessionId = null;
 let patientCounter = 1;
@@ -43,7 +46,7 @@ function updateConfidenceBars(confidence = {}) {
   });
 }
 createSessionBtn.onclick = async () => {
-  const res = await fetch("http://127.0.0.1:5000/api/create_session", {
+  const res = await fetch(`${API_BASE}/api/create_session`, {
     method: "POST",
   });
 
@@ -129,7 +132,7 @@ chatForm.addEventListener("submit", async (e) => {
   renderChat();
   showTypingIndicator(true);
 
-  const res = await fetch("http://127.0.0.1:5000/api/chat", {
+  const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
