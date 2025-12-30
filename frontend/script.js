@@ -1,4 +1,5 @@
-const API_BASE = "https://miscible-unhurled-stormy.ngrok-free.dev";
+const API_BASE = "https://stats-basically-applicable-heath.trycloudflare.com";
+
 
 
 let sessions = {};
