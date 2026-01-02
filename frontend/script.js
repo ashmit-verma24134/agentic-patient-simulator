@@ -1,10 +1,9 @@
-const API_BASE = "https://stats-basically-applicable-heath.trycloudflare.com";
-
-
+const API_BASE = "http://127.0.0.1:5000";
 
 let sessions = {};
 let activeSessionId = null;
 let patientCounter = 1;
+
 const chatBox = document.getElementById("chatBox");
 const sessionInfo = document.getElementById("sessionInfo");
 const statusText = document.getElementById("status");
@@ -21,6 +20,11 @@ userInput.disabled = true;
 sendBtn.disabled = true;
 userInput.placeholder = "Create a patient to begin";
 
+//Helpers
+
+function cleanPatientReply(text) {
+  return text.replace(/^__EXPRESSIVE__/, "").trim();
+}
 
 function showTypingIndicator(show) {
   typingIndicator.style.display = show ? "block" : "none";
@@ -28,13 +32,16 @@ function showTypingIndicator(show) {
 
 function updateMemory(symptoms = []) {
   memoryList.innerHTML = "";
-  symptoms.forEach(s => {const li = document.createElement("li");li.innerText = `✔ ${s}`;memoryList.appendChild(li);});
+  symptoms.forEach(s => {
+    const li = document.createElement("li");
+    li.innerText = `✔ ${s}`;
+    memoryList.appendChild(li);
+  });
 }
 
 function updateConfidenceBars(confidence = {}) {
   confidenceBars.innerHTML = "";
-  Object.keys(confidence).forEach(disease => {
-    const percent = confidence[disease];
+  Object.entries(confidence).forEach(([disease, percent]) => {
     const wrapper = document.createElement("div");
     wrapper.className = "bar-container";
     wrapper.innerHTML = `
@@ -46,75 +53,73 @@ function updateConfidenceBars(confidence = {}) {
     confidenceBars.appendChild(wrapper);
   });
 }
+
+//Session management
+
 createSessionBtn.onclick = async () => {
-  const res = await fetch(`${API_BASE}/api/create_session`, {
-    method: "POST",
-  });
-
+  const res = await fetch(`${API_BASE}/api/create_session`, { method: "POST" });
   const data = await res.json();
-  const sessionId = data.session_id;
 
-  sessions[sessionId] = {
+  sessions[data.session_id] = {
     label: `Patient ${patientCounter++}`,
     chat: [],
     status: "Diagnosis not allowed yet",
     phase: "question",
-    symptoms: [],        
-    confidence: {}        
+    symptoms: [],
+    confidence: {}
   };
 
-  setActiveSession(sessionId);
+  setActiveSession(data.session_id);
   renderSessionList();
 };
 
-function setActiveSession(sessionId) {
-  activeSessionId = sessionId;
-  const session = sessions[sessionId];
-  sessionInfo.innerText = `${session.label} • ${sessionId.slice(0, 8)}`;
-  statusText.innerText = session.status;
-  statusText.style.color =
-    session.phase === "question" ? "#b91c1c" : "#166534";
-  switch (session.phase) {
-    case "question":
-      userInput.disabled = false;
-      sendBtn.disabled = false;
-      userInput.placeholder = "Ask a question (e.g. Do you have fever?)";
-      break;
-    case "diagnosis":
-      userInput.disabled = false;
-      sendBtn.disabled = false;
-      userInput.placeholder = "Type diagnosis: flu / migraine / food_poisoning";
-      break;
-    case "treatment":
-      userInput.disabled = false;
-      sendBtn.disabled = false;
-      break;
-    case "complete":
-      userInput.disabled = true;
-      sendBtn.disabled = true;
-      userInput.placeholder = "Session completed";
-      break;
-  }
+function setActiveSession(id) {
+  activeSessionId = id;
+  const s = sessions[id];
+
+  sessionInfo.innerText = `${s.label} • ${id.slice(0, 8)}`;
+  statusText.innerText = s.status;
+  statusText.style.color = s.phase === "question" ? "#b91c1c" : "#166534";
+
+  userInput.disabled = s.phase === "complete";
+  sendBtn.disabled = s.phase === "complete";
+
+  if (s.phase === "question") userInput.placeholder = "Ask a medical question";
+  if (s.phase === "diagnosis") userInput.placeholder = "Type diagnosis";
+  if (s.phase === "treatment") userInput.placeholder = "Prescribe treatment";
+  if (s.phase === "complete") userInput.placeholder = "Session completed";
+
   renderChat();
-  renderSessionList();
-  updateMemory(session.symptoms);
-  updateConfidenceBars(session.confidence);
+  updateMemory(s.symptoms);
+  updateConfidenceBars(s.confidence);
 }
 
 function renderSessionList() {
-  sessionList.innerHTML = "";
+  sessionList.innerHTML = ""; // hard reset
 
-  Object.keys(sessions).forEach((id) => {
+  Object.entries(sessions).forEach(([id, session]) => {
     const div = document.createElement("div");
-    div.className =
-      "session-item" + (id === activeSessionId ? " active" : "");
-    div.innerText = sessions[id].label;
-    div.onclick = () => setActiveSession(id);
+
+    div.classList.add("session-item");
+    if (id === activeSessionId) {
+      div.classList.add("active");
+    }
+
+    div.innerText = session.label;
+
+    div.onclick = () => {
+      setActiveSession(id);
+      renderSessionList(); 
+    };
+
     sessionList.appendChild(div);
   });
 }
 
-chatForm.addEventListener("submit", async (e) => {
+
+//Chat handler
+
+chatForm.addEventListener("submit", async e => {
   e.preventDefault();
   if (!activeSessionId) return;
 
@@ -124,58 +129,77 @@ chatForm.addEventListener("submit", async (e) => {
 
   const session = sessions[activeSessionId];
 
-  session.chat.push({
-    sender: "Doctor",
-    text: message,
-    cls: "user",
-  });
-
+  session.chat.push({ sender: "Doctor", text: message, cls: "user" });
   renderChat();
   showTypingIndicator(true);
 
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      session_id: activeSessionId,
-      message,
-    }),
+    body: JSON.stringify({ session_id: activeSessionId, message })
   });
 
   const data = await res.json();
 
-  const minDelay = 900;
-  const maxDelay = 2200;
-  const charsPerMs = 18;
-  const replyLength = (data.reply || "").length;
-
-  const typingDelay = Math.min(
-    maxDelay,
-    Math.max(minDelay, replyLength * charsPerMs)
-  );
-
   setTimeout(() => {
     showTypingIndicator(false);
 
-    if (data.error) {
-      session.chat.push({
-        sender: "System",
-        text: data.error,
-        cls: "system",
-      });
-      renderChat();
-      return;
+//Verdicts
+
+    if (data.verdict) {
+
+      if (["correct", "incorrect", "blocked"].includes(data.verdict)) {
+        session.chat.push({
+          sender: "System",
+          text: `Verdict: ${data.verdict.toUpperCase()} — ${data.reason || ""}`,
+          cls: "system"
+        });
+
+        if (data.verdict === "correct") {
+          session.phase = "treatment";
+          session.status = "Diagnosis completed — prescribe treatment";
+        }
+
+        renderChat();
+        setActiveSession(activeSessionId);
+        return;
+      }
+
+      if (data.treatment_verdict === "accepted" || data.treatment_verdict === "rejected") {
+        session.chat.push({
+          sender: "Patient",
+          text: cleanPatientReply(data.reply),
+          cls: "patient"
+        });
+
+        if (data.treatment_verdict === "accepted") {
+          session.chat.push({
+            sender: "System",
+            text: "Treatment accepted. Session completed.",
+            cls: "system"
+          });
+          session.phase = "complete";
+          session.status = "Treatment completed";
+        } else {
+          session.phase = "treatment";
+          session.status = "Treatment rejected — try another treatment";
+        }
+
+        renderChat();
+        setActiveSession(activeSessionId);
+        return;
+      }
     }
+
+//Normal patient response
 
     if (data.reply) {
       session.chat.push({
         sender: "Patient",
-        text: data.reply,
-        cls: "patient",
+        text: cleanPatientReply(data.reply),
+        cls: "patient"
       });
     }
-
-    console.log("BACKEND RESPONSE:", data);
 
     if (data.symptoms_revealed) {
       session.symptoms = data.symptoms_revealed;
@@ -192,44 +216,20 @@ chatForm.addEventListener("submit", async (e) => {
       session.status = "Diagnosis can now be attempted";
     }
 
-    if (data.evaluation) {
-      session.chat.push({
-        sender: "System",
-        text: `Verdict: ${data.evaluation.verdict.toUpperCase()} — ${data.evaluation.reason}`,
-        cls: "system",
-      });
-
-      if (data.evaluation.verdict === "correct") {
-        session.phase = "treatment";
-        session.status = "Diagnosis completed — prescribe treatment";
-      }
-    }
-
-    if (data.treatment_verdict === "accepted") {
-      session.chat.push({
-        sender: "System",
-        text: "Treatment accepted. Session completed.",
-        cls: "system",
-      });
-
-      session.phase = "complete";
-      session.status = "Treatment completed";
-    }
-
+    renderChat();
     setActiveSession(activeSessionId);
-  }, typingDelay);
+  }, 900);
 });
+
+//Chatrender
 
 function renderChat() {
   chatBox.innerHTML = "";
-  if (!activeSessionId) return;
-
-  sessions[activeSessionId].chat.forEach((m) => {
+  sessions[activeSessionId]?.chat.forEach(m => {
     const div = document.createElement("div");
     div.className = "message " + m.cls;
     div.innerText = `${m.sender}: ${m.text}`;
     chatBox.appendChild(div);
   });
-
   chatBox.scrollTop = chatBox.scrollHeight;
 }
