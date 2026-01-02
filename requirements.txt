@@ -4,7 +4,8 @@ flask-cors
 python-dotenv
 langgraph
 langchain
-python==3.10.*
+groq
+
 
 
 

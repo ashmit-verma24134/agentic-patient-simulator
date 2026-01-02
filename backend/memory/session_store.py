@@ -1,19 +1,19 @@
-import uuid
+import uuid   #unique ids
 import random
-
 from data.diseases import DISEASES
-from graph.patient_graph import build_patient_graph
 
-_sessions = {}
+#importing graph for each unique patient which acts differently for each patient
+from graph.patient_graph import build_patient_graph    
 
+_sessions= {}  #to store diff sessions
 
 def create_session():
-    session_id = str(uuid.uuid4())
+    session_id  = str(uuid.uuid4())    #creates uniqe session id
     disease_name = random.choice(list(DISEASES.keys()))
 
-    graph = build_patient_graph()
+    graph = build_patient_graph()    #langgraph state machine
 
-    _sessions[session_id] = {
+    _sessions[session_id] = {  #storing each session's data also the starting state of a patient
         "graph": graph,
         "patient_state": {
             "disease": disease_name,

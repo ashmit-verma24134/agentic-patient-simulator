@@ -1,16 +1,21 @@
 from flask import Blueprint, request, jsonify
-from memory.session_store import get_session   # ✅ FIXED IMPORT
+from memory.session_store import get_session #to get data of a particular session id
+from agents.treatment_agent import TreatmentAgent
+from agents.evaluator_agent import EvaluatorAgent
+from agents.llm_client import llm_speak
 
-chat_bp = Blueprint("chat", __name__, url_prefix="/api")
+chat_bp = Blueprint("chat", __name__, url_prefix="/api")    #blueprints for chat
 
-
+# confidence engine
+# Looks at symptoms and guesses which disease is likely
+# its for the confidence bar in UI
 def compute_disease_confidence(symptoms):
     DISEASES = {
-        "Flu": {
+        "Flu":{
             "required": ["fever", "cough"],
             "optional": ["fatigue", "body pain", "headache"],
         },
-        "Migraine": {
+        "Migraine":{
             "required": ["headache"],
             "optional": [
                 "light_sensitivity",
@@ -20,108 +25,101 @@ def compute_disease_confidence(symptoms):
                 "relieved_by_darkness",
             ],
         },
-        "Food Poisoning": {
+        "Food Poisoning":{
             "required": ["nausea", "vomiting"],
             "optional": ["diarrhea", "stomach pain"],
         },
     }
-
     scores = {}
-
     for disease, info in DISEASES.items():
-        req_matches = sum(1 for s in info["required"] if s in symptoms)
-        opt_matches = sum(1 for s in info["optional"] if s in symptoms)
+        req =sum(1 for s in info["required"] if s in symptoms)  #checks required symptoms of input
+        opt =sum(1 for s in info["optional"] if s in symptoms)  #checks opt symptoms of input
+        scores[disease]=req*3 + opt
 
-        score = req_matches * 2 + opt_matches
-
-        if disease == "Migraine" and "light_sensitivity" in symptoms:
-            score += 2
-
-        if disease == "Food Poisoning":
-            if not any(s in symptoms for s in ["vomiting", "diarrhea", "stomach pain"]):
-                score *= 0.4
-
-        scores[disease] = score
-
-    scores = {d: s for d, s in scores.items() if s > 0}
-
-    if not scores:
-        return {d: 0 for d in DISEASES}
-
-    total = sum(scores.values())
+    total = sum(scores.values()) or 1
     return {d: round((scores.get(d, 0) / total) * 100) for d in DISEASES}
+
+    #It looks at the symptoms the patient has revealed and guesses which disease is most likely (in percentages).
 
 
 @chat_bp.route("/chat", methods=["POST"])
 def chat():
-    data = request.json or {}   # ✅ FIX 1
-    session_id = data.get("session_id")
-    message = data.get("message", "").strip()
+    data =request.json or {}
+    session_id =data.get("session_id")       #gets which patient
+    message =(data.get("message") or "").strip()  #gets the message of doctor
 
-    session = get_session(session_id)
+    if not message:
+        return jsonify({"reply": "Please ask a medical question."})
+
+    session =get_session(session_id)   #finding correct patient
+          
     if not session:
         return jsonify({"error": "Invalid session"}), 400
 
-    state = session["patient_state"]
-    lower_msg = message.lower()
+    #loading patient memory and state of that particular active session
+    state= session["patient_state"]
+    graph= session["graph"]
+    msg= message.lower().strip()
 
-    if lower_msg.startswith("diagnosis"):
-        if not state.get("ready_for_diagnosis"):
-            return jsonify({"error": "Diagnosis is not allowed yet."})
-
-        from agents.evaluator_agent import EvaluatorAgent   # ✅ FIXED IMPORT
-
-        evaluator = EvaluatorAgent(state)
-        result = evaluator.evaluate(lower_msg)
-
-        if result["verdict"] == "correct":
-            state["diagnosis_confirmed"] = True
-            state["next_action"] = "accept_treatment"
+    # DIAGNOSIS HANDLER
+    if msg.startswith("diagnosis"):
+        evaluator= EvaluatorAgent(state)  #evaluatoragent will check if diagnosis is correct
+        result= evaluator.evaluate(message) #will check if patient is ready
 
         return jsonify({
-            "evaluation": result,
-            "next_action": state.get("next_action"),
-            "symptoms_revealed": list(state.get("symptoms_revealed", [])),
-            "disease_confidence": compute_disease_confidence(
-                state.get("symptoms_revealed", [])
-            ),
+            "verdict": result["verdict"],
+            "reason": result.get("reason", ""),  #correct diagnosis has no reason
+            "reply": (
+                "Diagnosis accepted. Please prescribe treatment."
+                if result["verdict"] == "correct"
+                else result.get("reason", "Diagnosis not accepted.")
+            )
         })
 
-    if lower_msg.startswith("treatment"):
-        if not state.get("diagnosis_confirmed"):
-            return jsonify({"error": "Treatment cannot be prescribed before diagnosis."})
+    # TREATMENT HANDLER
 
-        from agents.treatment_agent import TreatmentAgent   # ✅ FIXED IMPORT
+    if msg.startswith("treatment"):
+        agent = TreatmentAgent(state)
+        result = agent.evaluate(message)
 
-        treatment_agent = TreatmentAgent(state)
-        result = treatment_agent.evaluate(lower_msg)
-
-        if result["verdict"] == "accepted":
-            state["treatment_accepted"] = True
-            state["next_action"] = "session_complete"
+        #Language generation happens HERE (credits groq AI) (LLM COMES IN ACTION)
+        reply= llm_speak(
+            system_prompt=(
+                "ROLE: Patient\n"
+                "TASK: Respond naturally to a doctor's treatment.\n\n"
+                "RULES:\n"
+                "- First person only\n"
+                "- One sentence only\n"  #I kept the prompt rigid so that it doesn't hallucinates
+                "- Neutral human tone\n"
+                "- Do NOT add symptoms\n"
+                "- Do NOT give advice\n"
+                "- Do NOT diagnose\n"
+                "- Do NOT express strong emotion\n"
+            ),
+            user_prompt=result["semantic_reply"],
+        )
 
         return jsonify({
-            "reply": result["reply"],
+            "verdict": result["verdict"],   #The session continues because frontend keeps sending messages until patient accepts treatment.
             "treatment_verdict": result["verdict"],
-            "next_action": state.get("next_action"),
-            "symptoms_revealed": list(state.get("symptoms_revealed", [])),
-            "disease_confidence": compute_disease_confidence(
-                state.get("symptoms_revealed", [])
-            ),
+            "reply": reply
         })
 
-    graph = session["graph"]
+    # NORMAL LANGGRAPH FLOW  (for normal questions)
 
-    new_state = graph.invoke({**state, "last_user_message": message})
+    config= {"configurable": {"thread_id":session_id}}  #thread id mapping with session_id
+
+    new_state= graph.invoke(                 #Patient graph call
+        {**state, "last_user_message": message},         #IMP:It takes the current full state and add the latest doctor message and gives it to langraph through graph invoke and decides the next state
+        config=config
+    )
+
     state.update(new_state)
 
-    return jsonify({
-        "reply": new_state.get("reply"),
-        "questions_asked": new_state.get("questions_asked"),
-        "ready_for_diagnosis": new_state.get("ready_for_diagnosis"),
-        "next_action": new_state.get("next_action"),
-        "symptoms_revealed": list(state.get("symptoms_revealed", [])),
-        "disease_confidence": compute_disease_confidence(
-            state.get("symptoms_revealed", [])
-        ),
-    })
+    return jsonify({            #Sending data back to frontend
+        "reply":state.get("reply"),
+        "questions_asked":state.get("questions_asked", 0),
+        "ready_for_diagnosis":state.get("ready_for_diagnosis"),
+        "next_action":state.get("next_action"),
+        "symptoms_revealed":list(state.get("symptoms_revealed", [])),
+        "disease_confidence":compute_disease_confidence(state.get("symptoms_revealed",[])),})
